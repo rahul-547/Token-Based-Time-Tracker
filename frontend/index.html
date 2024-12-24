@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Token Based Time Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.6.1/web3.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      input {
+        padding: 10px;
+        margin: 10px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Token Based Time Tracker</h1>
+    <p>Log time spent on tasks and earn tokens based on your logged time!</p>
+
+    <!-- Time logging section -->
+    <div>
+      <h2>Log Time Spent on Task</h2>
+      <input type="number" id="timeInSeconds" placeholder="Time in seconds" />
+      <button id="logTimeBtn">Log Time</button>
+    </div>
+
+    <div>
+      <h2>Claim Tokens</h2>
+      <button id="claimTokensBtn">Claim Tokens</button>
+    </div>
+
+    <div id="userInfo">
+      <h3>Your Wallet Address: <span id="userAddress">Not Connected</span></h3>
+      <h4>Time Logged: <span id="timeLogged">0</span> seconds</h4>
+    </div>
+
+    <script>
+      // Set up Web3 and contract interaction
+      const contractAddress = "0x816D73675523B5DB6bfb84C7eDcf0555eC5dF840"; // Replace with your deployed contract address
+      const rewardTokenAddress = "0x99431f2a6b5Cd02378E4e8ea9c15FA2777a51FaE"; // Replace with your ERC20 reward token address
+      const contractABI = [
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "recipient",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "transfer",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ];
+
+      let web3;
+      let accounts;
+      let contract;
+
+      // Initialize web3 and contract
+      async function init() {
+        if (window.ethereum) {
+          web3 = new Web3(window.ethereum);
+          try {
+            // Request account access if needed
+            await window.ethereum.request({ method: "eth_requestAccounts" });
+            accounts = await web3.eth.getAccounts();
+            contract = new web3.eth.Contract(contractABI, contractAddress);
+
+            // Update user info in the UI
+            document.getElementById("userAddress").textContent = accounts[0];
+            updateTimeLogged();
+          } catch (error) {
+            console.error("User denied account access");
+            alert("Please connect to MetaMask.");
+          }
+        } else {
+          alert("Please install MetaMask to interact with this application!");
+        }
+      }
+
+      // Function to update the time logged
+      async function updateTimeLogged() {
+        const timeLogged = await contract.methods
+          .timeLogged(accounts[0])
+          .call();
+        document.getElementById("timeLogged").textContent = timeLogged;
+      }
+
+      // Log time spent on a task
+      async function logTime() {
+        const timeInSeconds = document.getElementById("timeInSeconds").value;
+        if (!timeInSeconds || timeInSeconds <= 0) {
+          alert("Please enter a valid time value");
+          return;
+        }
+
+        try {
+          await contract.methods
+            .logTimeSpent(timeInSeconds)
+            .send({ from: accounts[0] });
+          alert("Time logged successfully!");
+          updateTimeLogged(); // Update the UI with the new time logged
+        } catch (error) {
+          console.error(error);
+          alert("Failed to log time");
+        }
+      }
+
+      // Claim tokens based on logged time
+      async function claimTokens() {
+        try {
+          await contract.methods.claimTokens().send({ from: accounts[0] });
+          alert("Tokens claimed successfully!");
+          updateTimeLogged(); // Update the UI with the new time logged (reset to 0)
+        } catch (error) {
+          console.error(error);
+          alert("Failed to claim tokens");
+        }
+      }
+
+      // Set up event listeners for buttons
+      document.getElementById("logTimeBtn").addEventListener("click", logTime);
+      document
+        .getElementById("claimTokensBtn")
+        .addEventListener("click", claimTokens);
+
+      // Initialize on page load
+      window.addEventListener("load", init);
+    </script>
+  </body>
+</html>
